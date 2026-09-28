@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DriveFlow - Gestão para Motoristas</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIkRyaXZlRmxvdyIsCiAgInNob3J0X25hbWUiOiAiRHJpdmVGbG93IiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiMwZjE3MmEiLAogICJ0aGVtZV9jb2xvciI6ICIjMGYxNzJhIgp9">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js for Reports -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Desativar seleção de texto para sensation de App Nativo */
+        body {
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        /* Hide Scrollbars */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-gray-100 min-h-screen pb-24 transition-colors duration-200">
+
+    <!-- HEADER / BARRA SUPERIOR -->
+    <header class="sticky top-0 z-30 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-gray-200 dark:border-slate-700 px-4 py-3 flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+            <div class="bg-brand-500 text-white p-2 rounded-xl shadow-md shadow-brand-500/20">
+                <i data-lucide="car" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg leading-none">Drive<span class="text-brand-500">Flow</span></h1>
+                <span class="text-xs text-gray-500 dark:text-gray-400 font-medium" id="header-date">--/--/----</span>
+            </div>
+        </div>
+        <button id="btn-toggle-theme" onclick="app.toggleTheme()" class="p-2.5 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600 transition">
+            <i data-lucide="moon" class="w-5 h-5 dark:hidden"></i>
+            <i data-lucide="sun" class="w-5 h-5 hidden dark:block"></i>
+        </button>
+    </header>
+
+    <!-- CONTEÚDO DAS TELAS (SPA) -->
+    <main class="max-w-md mx-auto px-4 pt-4 space-y-4">
+
+        <!-- 1. DASHBOARD -->
+        <section id="view-dashboard" class="space-y-4">
+            
+            <!-- CARD CRONÔMETRO -->
+            <div class="bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-3xl p-5 shadow-xl border border-slate-700/50 relative overflow-hidden">
+                <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-brand-500/10 rounded-full blur-2xl"></div>
+                
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-slate-500" id="status-indicator"></span>
+                        Jornada de Hoje
+                    </span>
+                    <span id="timer-status-text" class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300">PARADO</span>
+                </div>
+
+                <div class="text-center py-2">
+                    <div id="timer-display" class="text-4xl font-black tracking-tight font-mono text-white">00:00:00</div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 mt-4">
+                    <button id="btn-timer-start" onclick="app.startTimer()" class="bg-brand-500 hover:bg-brand-600 active:scale-95 text-white font-bold py-3 px-2 rounded-2xl flex items-center justify-center gap-1.5 shadow-lg shadow-brand-500/30 transition">
+                        <i data-lucide="play" class="w-4 h-4 fill-current"></i> Iniciar
+                    </button>
+                    <button id="btn-timer-pause" onclick="app.pauseTimer()" class="bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold py-3 px-2 rounded-2xl flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/30 transition disabled:opacity-40" disabled>
+                        <i data-lucide="pause" class="w-4 h-4 fill-current"></i> Pausar
+                    </button>
+                    <button id="btn-timer-stop" onclick="app.stopTimer()" class="bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-bold py-3 px-2 rounded-2xl flex items-center justify-center gap-1.5 shadow-lg shadow-rose-500/30 transition disabled:opacity-40" disabled>
+                        <i data-lucide="square" class="w-4 h-4 fill-current"></i> Encerrar
+                    </button>
+                </div>
+            </div>
+
+            <!-- BOTÕES DE AÇÃO RÁPIDA -->
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="app.openModal('modal-gain')" class="bg-emerald-500 hover:bg-emerald-600 active:scale-98 text-white p-4 rounded-2xl shadow-lg shadow-emerald-500/20 flex items-center gap-3 transition">
+                    <div class="bg-white/20 p-2.5 rounded-xl"><i data-lucide="plus-circle" class="w-6 h-6"></i></div>
+                    <div class="text-left">
+                        <span class="block text-xs uppercase font-bold text-emerald-100">Registrar</span>
+                        <span class="text-base font-extrabold">+ GANHO</span>
+                    </div>
+                </button>
+
+                <button onclick="app.openModal('modal-expense')" class="bg-rose-500 hover:bg-rose-600 active:scale-98 text-white p-4 rounded-2xl shadow-lg shadow-rose-500/20 flex items-center gap-3 transition">
+                    <div class="bg-white/20 p-2.5 rounded-xl"><i data-lucide="minus-circle" class="w-6 h-6"></i></div>
+                    <div class="text-left">
+                        <span class="block text-xs uppercase font-bold text-rose-100">Registrar</span>
+                        <span class="text-base font-extrabold">+ GASTO</span>
+                    </div>
+                </button>
+            </div>
+
+            <!-- CARDS DE RESUMO FINANCEIRO -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-gray-100 dark:border-slate-700/60 shadow-sm">
+                    <div class="flex items-center gap-2 text-emerald-500 mb-1">
+                        <i data-lucide="trending-up" class="w-4 h-4"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Ganhos Hoje</span>
+                    </div>
+                    <div id="dash-gross" class="text-xl font-extrabold text-gray-900 dark:text-white">R$ 0,00</div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-gray-100 dark:border-slate-700/60 shadow-sm">
+                    <div class="flex items-center gap-2 text-rose-500 mb-1">
+                        <i data-lucide="trending-down" class="w-4 h-4"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Gastos Hoje</span>
+                    </div>
+                    <div id="dash-expenses" class="text-xl font-extrabold text-gray-900 dark:text-white">R$ 0,00</div>
+                </div>
+            </div>
+
+            <!-- LUCRO LÍQUIDO EM DESTAQUE -->
+            <div class="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-gray-100 dark:border-slate-700/60 shadow-sm relative overflow-hidden">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                        <i data-lucide="wallet" class="w-4 h-4 text-brand-500"></i> Lucro Líquido
+                    </span>
+                    <span id="dash-badge-status" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">Positivo</span>
+                </div>
+                <div id="dash-net" class="text-3xl font-black text-gray-900 dark:text-white mb-3">R$ 0,00</div>
+                
+                <div class="grid grid-cols-2 gap-2 pt-3 border-t border-gray-100 dark:border-slate-700/60">
+                    <div>
+                        <span class="text-[10px] uppercase font-bold text-gray-400 block">Líquido / Hora</span>
+                        <span id="dash-net-hour" class="text-sm font-bold text-gray-700 dark:text-gray-200">R$ 0,00/h</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] uppercase font-bold text-gray-400 block">Bruto / Hora</span>
+                        <span id="dash-gross-hour" class="text-sm font-bold text-gray-700 dark:text-gray-200">R$ 0,00/h</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GANHOS POR APLICATIVO -->
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-gray-100 dark:border-slate-700/60 shadow-sm space-y-3">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Ganhos por Aplicativo Hoje</h3>
+                <div id="dash-apps-breakdown" class="space-y-2">
+                    <!-- Gerado via JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. HISTÓRICO -->
+        <section id="view-history" class="space-y-4 hidden">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-bold">Histórico de Jornadas</h2>
+                <select id="history-filter" onchange="app.renderHistory()" class="bg-white dark:bg-slate-800 text-xs font-semibold border border-gray-200 dark:border-slate-700 rounded-xl px-3 py-2">
+                    <option value="today">Hoje</option>
+                    <option value="yesterday">Ontem</option>
+                    <option value="7days" selected>Últimos 7 dias</option>
+                    <option value="month">Este Mês</option>
+                    <option value="all">Todo o Período</option>
+                </select>
+            </div>
+
+            <div id="history-list" class="space-y-3">
+                <!-- Lista Gerada via JS -->
+            </div>
+        </section>
+
+        <!-- 3. RELATÓRIOS -->
+        <section id="view-reports" class="space-y-4 hidden">
+            <h2 class="text-lg font-bold">Relatórios & Desempenho</h2>
+
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-gray-100 dark:border-slate-700/60 shadow-sm">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Ganhos vs Gastos (Últimos 7 Dias)</h3>
+                <div class="h-48">
+                    <canvas id="chart-weekly"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-gray-100 dark:border-slate-700/60 shadow-sm">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Ganhos por Aplicativo</h3>
+                <div class="h-48">
+                    <canvas id="chart-apps"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-gray-100 dark:border-slate-700/60 shadow-sm">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Gastos por Categoria</h3>
+                <div class="h-48">
+                    <canvas id="chart-expenses"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. METAS & APLICATIVOS -->
+        <section id="view-goals" class="space-y-4 hidden">
+            <!-- METAS -->
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-gray-100 dark:border-slate-700/60 shadow-sm space-y-3">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-sm font-bold">Meta Diária de Lucro</h3>
+                    <button onclick="app.editGoal()" class="text-xs text-brand-500 font-bold">Alterar</button>
+                </div>
+                <div>
+                    <div class="flex justify-between text-xs font-bold mb-1">
+                        <span id="goal-progress-text">R$ 0,00 / R$ 300,00</span>
+                        <span id="goal-percent-text" class="text-brand-500">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-100 dark:bg-slate-700 h-3 rounded-full overflow-hidden">
+                        <div id="goal-bar" class="bg-brand-500 h-full w-0 transition-all duration-500"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GESTÃO DE APPS -->
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-gray-100 dark:border-slate-700/60 shadow-sm space-y-3">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-sm font-bold">Aplicativos Cadastrados</h3>
+                    <button onclick="app.addAppPrompt()" class="text-xs bg-brand-500 text-white font-bold px-2.5 py-1 rounded-lg">+ Novo App</button>
+                </div>
+                <div id="apps-list" class="space-y-2">
+                    <!-- Gerado via JS -->
+                </div>
+            </div>
+
+            <!-- CUSTO DO VEÍCULO (ESTIMADO) -->
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-gray-100 dark:border-slate-700/60 shadow-sm space-y-3">
+                <h3 class="text-sm font-bold">Calculadora de Custo Fixo/Km</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Configure seus custos mensais para saber seu custo fixo estimado por dia.</p>
+                
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <label class="block font-medium text-gray-500 mb-1">Financiamento/mês</label>
+                        <input type="number" id="cfg-cost-financing" onchange="app.saveCosts()" placeholder="R$ 0" class="w-full bg-gray-50 dark:bg-slate-700 p-2 rounded-xl border border-gray-200 dark:border-slate-600">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-gray-500 mb-1">Seguro/mês</label>
+                        <input type="number" id="cfg-cost-insurance" onchange="app.saveCosts()" placeholder="R$ 0" class="w-full bg-gray-50 dark:bg-slate-700 p-2 rounded-xl border border-gray-200 dark:border-slate-600">
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-50 dark:bg-slate-700/40 rounded-xl text-center">
+                    <span class="text-xs text-gray-500 dark:text-gray-400 block">Custo Fixo Estimado Por Dia:</span>
+                    <span id="vehicle-fixed-daily" class="text-lg font-bold text-brand-500">R$ 0,00 / dia</span>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- NAVEGAÇÃO INFERIOR -->
+    <nav class="fixed bottom-0 left-0 right-0 z-30 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border-t border-gray-200 dark:border-slate-700 px-4 py-2">
+        <div class="max-w-md mx-auto flex justify-around items-center">
+            <button onclick="app.switchTab('dashboard')" id="nav-dashboard" class="flex flex-col items-center text-brand-500 transition">
+                <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                <span class="text-[10px] font-bold mt-1">Início</span>
+            </button>
+            <button onclick="app.switchTab('history')" id="nav-history" class="flex flex-col items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition">
+                <i data-lucide="calendar" class="w-5 h-5"></i>
+                <span class="text-[10px] font-bold mt-1">Histórico</span>
+            </button>
+            <button onclick="app.switchTab('reports')" id="nav-reports" class="flex flex-col items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition">
+                <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
+                <span class="text-[10px] font-bold mt-1">Relatórios</span>
+            </button>
+            <button onclick="app.switchTab('goals')" id="nav-goals" class="flex flex-col items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition">
+                <i data-lucide="target" class="w-5 h-5"></i>
+                <span class="text-[10px] font-bold mt-1">Ajustes/Metas</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- MODAL REGISTRAR GANHO -->
+    <div id="modal-gain" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white dark:bg-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200">
+            <div class="flex justify-between items-center border-b border-gray-100 dark:border-slate-700 pb-3">
+                <h3 class="text-base font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                    <i data-lucide="plus-circle" class="w-5 h-5"></i> Adicionar Ganho
+                </h3>
+                <button onclick="app.closeModal('modal-gain')" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+
+            <form id="form-gain" onsubmit="app.saveGain(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Aplicativo</label>
+                    <select id="gain-app" required class="w-full bg-gray-50 dark:bg-slate-700 p-3 rounded-xl border border-gray-200 dark:border-slate-600 font-semibold">
+                        <!-- Preenchido via JS -->
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Valor (R$)</label>
+                    <input type="number" step="0.01" id="gain-amount" placeholder="0,00" required class="w-full bg-gray-50 dark:bg-slate-700 p-3 rounded-xl border border-gray-200 dark:border-slate-600 text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Tipo</label>
+                        <select id="gain-type" class="w-full bg-gray-50 dark:bg-slate-700 p-3 rounded-xl border border-gray-200 dark:border-slate-600 text-sm font-semibold">
+                            <option value="Corrida">Corrida</option>
+                            <option value="Bônus">Bônus</option>
+                            <option value="Gorjeta">Gorjeta</option>
+                            <option value="Outros">Outros</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Horário</label>
+                        <input type="time" id="gain-time" class="w-full bg-gray-50 dark:bg-slate-700 p-3 rounded-xl border border-gray-200 dark:border-slate-600 text-sm font-semibold">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Observação (Opcional)</label>
+                    <input type="text" id="gain-note" placeholder="Ex: Corrida dinâmica" class="w-full bg-gray-50 dark:bg-slate-700 p-3 rounded-xl border border-gray-200 dark:border-slate-600 text-sm">
+                </div>
+
+                <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-emerald-500/30 transition">
+                    Salvar Ganho
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL REGISTRAR GASTO -->
+    <div id="modal-expense" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white dark:bg-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200">
+            <div class="flex justify-between items-center border-b border-gray-100 dark:border-slate-700 pb-3">
+                <h3 class="text-base font-bold text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                    <i data-lucide="minus-circle" class="w-5 h-5"></i> Adicionar Gasto
+                </h3>
+                <button onclick="app.closeModal('modal-expense')" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+
+            <form id="form-expense" onsubmit="app.saveExpense(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Categoria</label>
+                    <select id="expense-category" required class="w-full bg-gray-50 dark:bg-slate-700 p-3 rounded-xl border border-gray-200 dark:border-slate-600 font-semibold">
+                        <option value="Combustível">Combustível</option>
+                        <option value="Alimentação">Alimentação</option>
+                        <option value="Pedágio">Pedágio</option>
+                        <option value="Estacionamento">Estacionamento</option>
+                        <option value="Lavagem">Lavagem</option>
+                        <option value="Manutenção">Manutenção</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Valor (R$)</label>
+                    <input type="number" step="0.01" id="expense-amount" placeholder="0,00" required class="w-full bg-gray-50 dark:bg-slate-700 p-3 rounded-xl border border-gray-200 dark:border-slate-600 text-xl font-bold text-rose-600 dark:text-rose-400">
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Forma Pagto.</label>
+                        <select id="expense-paymethod" class="w-full bg-gray-50 dark:bg-slate-700 p-3 rounded-xl border border-gray-200 dark:border-slate-600 text-sm font-semibold">
+                            <option value="Pix">Pix</option>
+                            <option value="Dinheiro">Dinheiro</option>
+                            <option value="Cartão">Cartão</option>
+                            <option value="Outro">Outro</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Horário</label>
+                        <input type="time" id="expense-time" class="w-full bg-gray-50 dark:bg-slate-700 p-3 rounded-xl border border-gray-200 dark:border-slate-600 text-sm font-semibold">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Observação (Opcional)</label>
+                    <input type="text" id="expense-note" placeholder="Ex: Posto Shell" class="w-full bg-gray-50 dark:bg-slate-700 p-3 rounded-xl border border-gray-200 dark:border-slate-600 text-sm">
+                </div>
+
+                <button type="submit" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-rose-500/30 transition">
+                    Salvar Gasto
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT DO APLICATIVO -->
+    <script>
+        class DriveFlowApp {
+            constructor() {
+                this.state = {
+                    apps: ['Uber', '99', 'inDrive', 'Outros'],
+                    transactions: [],
+                    shifts: [],
+                    timer: {
+                        running: false,
+                        startTime: null,
+                        elapsedSeconds: 0,
+                        intervalId: null
+                    },
+                    dailyGoal: 300,
+                    vehicleCosts: { financing: 0, insurance: 0 }
+                };
+
+                this.charts = {};
+                this.init();
+            }
+
+            init() {
+                this.loadLocalStorage();
+                this.setupTheme();
+                this.setupDates();
+                this.renderAppsOptions();
+                this.updateTimerDisplay();
+                this.updateDashboard();
+                lucide.createIcons();
+
+                // Recupera o estado do cronômetro se estivesse rodando
+                if (this.state.timer.running) {
+                    this.startTimer(true);
+                }
+            }
+
+            // --- TEMA E CONFIGS ---
+            setupTheme() {
+                const isDark = localStorage.getItem('df_theme') === 'dark' || 
+                    (!('df_theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                if (isDark) document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            }
+
+            toggleTheme() {
+                const isDark = document.documentElement.classList.toggle('dark');
+                localStorage.setItem('df_theme', isDark ? 'dark' : 'light');
+                this.renderCharts();
+            }
+
+            setupDates() {
+                const now = new Date();
+                document.getElementById('header-date').innerText = now.toLocaleDateString('pt-BR');
+                document.getElementById('gain-time').value = now.toTimeString().substring(0, 5);
+                document.getElementById('expense-time').value = now.toTimeString().substring(0, 5);
+            }
+
+            // --- LOCALSTORAGE ---
+            loadLocalStorage() {
+                const saved = localStorage.getItem('df_data_v1');
+                if (saved) {
+                    try {
+                        this.state = { ...this.state, ...JSON.parse(saved) };
+                    } catch (e) {
+                        console.error('Erro ao ler dados do LocalStorage', e);
+                    }
+                }
+                
+                // Preencher campos de custo do veículo
+                document.getElementById('cfg-cost-financing').value = this.state.vehicleCosts.financing || '';
+                document.getElementById('cfg-cost-insurance').value = this.state.vehicleCosts.insurance || '';
+            }
+
+            saveLocalStorage() {
+                localStorage.setItem('df_data_v1', JSON.stringify(this.state));
+            }
+
+            // --- NAVEGAÇÃO SPA ---
+            switchTab(tabName) {
+                ['dashboard', 'history', 'reports', 'goals'].forEach(t => {
+                    const view = document.getElementById(`view-${t}`);
+                    const nav = document.getElementById(`nav-${t}`);
+                    if (t === tabName) {
+                        view.classList.remove('hidden');
+                        nav.classList.add('text-brand-500');
+                        nav.classList.remove('text-gray-400');
+                    } else {
+                        view.classList.add('hidden');
+                        nav.classList.remove('text-brand-500');
+                        nav.classList.add('text-gray-400');
+                    }
+                });
+
+                if (tabName === 'history') this.renderHistory();
+                if (tabName === 'reports') this.renderReports();
+                if (tabName === 'goals') this.renderGoalsPage();
+            }
+
+            // --- CRONÔMETRO DE JORNADA ---
+            startTimer(restoring = false) {
+                if (this.state.timer.running && !restoring) return;
+
+                if (!restoring) {
+                    this.state.timer.running = true;
+                    this.state.timer.startTime = Date.now() - (this.state.timer.elapsedSeconds * 1000);
+                }
+
+                document.getElementById('btn-timer-start').disabled = true;
+                document.getElementById('btn-timer-pause').disabled = false;
+                document.getElementById('btn-timer-stop').disabled = false;
+                document.getElementById('timer-status-text').innerText = "EM ANDAMENTO";
+                document.getElementById('timer-status-text').className = "text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400";
+                document.getElementById('status-indicator').className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+
+                this.state.timer.intervalId = setInterval(() => {
+                    this.state.timer.elapsedSeconds = Math.floor((Date.now() - this.state.timer.startTime) / 1000);
+                    this.updateTimerDisplay();
+                    this.saveLocalStorage();
+                }, 1000);
+
+                this.saveLocalStorage();
+            }
+
+            pauseTimer() {
+                if (!this.state.timer.running) return;
+                clearInterval(this.state.timer.intervalId);
+                this.state.timer.running = false;
+
+                document.getElementById('btn-timer-start').disabled = false;
+                document.getElementById('btn-timer-pause').disabled = true;
+                document.getElementById('timer-status-text').innerText = "PAUSADO";
+                document.getElementById('timer-status-text').className = "text-xs font-medium px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400";
+                document.getElementById('status-indicator').className = "w-2 h-2 rounded-full bg-amber-500";
+
+                this.saveLocalStorage();
+                this.updateDashboard();
+            }
+
+            stopTimer() {
+                if (this.state.timer.elapsedSeconds === 0) return;
+
+                if (confirm("Deseja realmente encerrar e salvar a jornada de hoje?")) {
+                    clearInterval(this.state.timer.intervalId);
+
+                    const shift = {
+                        id: Date.now(),
+                        date: new Date().toISOString().split('T')[0],
+                        durationSeconds: this.state.timer.elapsedSeconds,
+                        endedAt: new Date().toLocaleTimeString('pt-BR')
+                    };
+
+                    this.state.shifts.push(shift);
+
+                    // Reset Timer
+                    this.state.timer = { running: false, startTime: null, elapsedSeconds: 0, intervalId: null };
+                    
+                    document.getElementById('btn-timer-start').disabled = false;
+                    document.getElementById('btn-timer-pause').disabled = true;
+                    document.getElementById('btn-timer-stop').disabled = true;
+                    document.getElementById('timer-status-text').innerText = "PARADO";
+                    document.getElementById('timer-status-text').className = "text-xs font-medium px-2.5 py-1 rounded-full bg-slate-700/50 text-slate-300";
+                    document.getElementById('status-indicator').className = "w-2 h-2 rounded-full bg-slate-500";
+
+                    this.updateTimerDisplay();
+                    this.saveLocalStorage();
+                    this.updateDashboard();
+                    alert("Jornada salva com sucesso no histórico!");
+                }
+            }
+
+            updateTimerDisplay() {
+                const totalSeconds = this.state.timer.elapsedSeconds;
+                const hrs = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+                const mins = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+                const secs = String(totalSeconds % 60).padStart(2, '0');
+                document.getElementById('timer-display').innerText = `${hrs}:${mins}:${secs}`;
+            }
+
+            // --- REGISTROS DE GANHO E GASTO ---
+            openModal(id) {
+                document.getElementById(id).classList.remove('hidden');
+            }
+
+            closeModal(id) {
+                document.getElementById(id).classList.add('hidden');
+            }
+
+            saveGain(e) {
+                e.preventDefault();
+                const appName = document.getElementById('gain-app').value;
+                const amount = parseFloat(document.getElementById('gain-amount').value);
+                const type = document.getElementById('gain-type').value;
+                const time = document.getElementById('gain-time').value;
+                const note = document.getElementById('gain-note').value;
+
+                const gainObj = {
+                    id: Date.now(),
+                    date: new Date().toISOString().split('T')[0],
+                    time: time || new Date().toLocaleTimeString('pt-BR').substring(0, 5),
+                    category: 'gain',
+                    app: appName,
+                    amount: amount,
+                    type: type,
+                    note: note
+                };
+
+                this.state.transactions.push(gainObj);
+                this.saveLocalStorage();
+                this.updateDashboard();
+                this.closeModal('modal-gain');
+                document.getElementById('form-gain').reset();
+                this.setupDates();
+            }
+
+            saveExpense(e) {
+                e.preventDefault();
+                const category = document.getElementById('expense-category').value;
+                const amount = parseFloat(document.getElementById('expense-amount').value);
+                const paymethod = document.getElementById('expense-paymethod').value;
+                const time = document.getElementById('expense-time').value;
+                const note = document.getElementById('expense-note').value;
+
+                const expenseObj = {
+                    id: Date.now(),
+                    date: new Date().toISOString().split('T')[0],
+                    time: time || new Date().toLocaleTimeString('pt-BR').substring(0, 5),
+                    category: 'expense',
+                    expenseCategory: category,
+                    amount: amount,
+                    paymethod: paymethod,
+                    note: note
+                };
+
+                this.state.transactions.push(expenseObj);
+                this.saveLocalStorage();
+                this.updateDashboard();
+                this.closeModal('modal-expense');
+                document.getElementById('form-expense').reset();
+                this.setupDates();
+            }
+
+            deleteTransaction(id) {
+                if (confirm('Deseja excluir este lançamento?')) {
+                    this.state.transactions = this.state.transactions.filter(t => t.id !== id);
+                    this.saveLocalStorage();
+                    this.updateDashboard();
+                    this.renderHistory();
+                }
+            }
+
+            // --- CÁLCULOS E DASHBOARD ---
+            getTodayDateStr() {
+                return new Date().toISOString().split('T')[0];
+            }
+
+            updateDashboard() {
+                const today = this.getTodayDateStr();
+                const todayTx = this.state.transactions.filter(t => t.date === today);
+
+                const gross = todayTx.filter(t => t.category === 'gain').reduce((acc, t) => acc + t.amount, 0);
+                const expenses = todayTx.filter(t => t.category === 'expense').reduce((acc, t) => acc + t.amount, 0);
+                const net = gross - expenses;
+
+                // Tempo trabalhado hoje (salvo + atual se rodando)
+                let totalSecondsToday = this.state.shifts
+                    .filter(s => s.date === today)
+                    .reduce((acc, s) => acc + s.durationSeconds, 0);
+
+                if (this.state.timer.running || this.state.timer.elapsedSeconds > 0) {
+                    totalSecondsToday += this.state.timer.elapsedSeconds;
+                }
+
+                const hoursWorked = totalSecondsToday / 3600;
+
+                const netPerHour = hoursWorked > 0 ? (net / hoursWorked) : 0;
+                const grossPerHour = hoursWorked > 0 ? (gross / hoursWorked) : 0;
+
+                // Atualizar DOM
+                document.getElementById('dash-gross').innerText = this.formatCurrency(gross);
+                document.getElementById('dash-expenses').innerText = this.formatCurrency(expenses);
+                document.getElementById('dash-net').innerText = this.formatCurrency(net);
+                document.getElementById('dash-net-hour').innerText = `${this.formatCurrency(netPerHour)}/h`;
+                document.getElementById('dash-gross-hour').innerText = `${this.formatCurrency(grossPerHour)}/h`;
+
+                // Badge status
+                const badge = document.getElementById('dash-badge-status');
+                if (net >= 0) {
+                    badge.innerText = "Positivo";
+                    badge.className = "text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300";
+                } else {
+                    badge.innerText = "Prejuízo";
+                    badge.className = "text-xs font-semibold px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300";
+                }
+
+                // Ganhos por App
+                const appsBreakdown = document.getElementById('dash-apps-breakdown');
+                appsBreakdown.innerHTML = '';
+                
+                this.state.apps.forEach(appName => {
+                    const appGross = todayTx
+                        .filter(t => t.category === 'gain' && t.app === appName)
+                        .reduce((acc, t) => acc + t.amount, 0);
+
+                    const percent = gross > 0 ? Math.round((appGross / gross) * 100) : 0;
+
+                    const row = document.createElement('div');
+                    row.className = 'space-y-1';
+                    row.innerHTML = `
+                        <div class="flex justify-between text-xs font-semibold">
+                            <span class="text-gray-700 dark:text-gray-300">${appName}</span>
+                            <span class="text-gray-900 dark:text-white">${this.formatCurrency(appGross)} (${percent}%)</span>
+                        </div>
+                        <div class="w-full bg-gray-100 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                            <div class="bg-brand-500 h-full" style="width: ${percent}%"></div>
+                        </div>
+                    `;
+                    appsBreakdown.appendChild(row);
+                });
+            }
+
+            formatCurrency(val) {
+                return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            }
+
+            // --- HISTÓRICO ---
+            renderHistory() {
+                const filter = document.getElementById('history-filter').value;
+                const container = document.getElementById('history-list');
+                container.innerHTML = '';
+
+                let filteredTx = [...this.state.transactions];
+                const now = new Date();
+
+                if (filter === 'today') {
+                    const today = this.getTodayDateStr();
+                    filteredTx = filteredTx.filter(t => t.date === today);
+                } else if (filter === 'yesterday') {
+                    const y = new Date(now);
+                    y.setDate(y.getDate() - 1);
+                    const yStr = y.toISOString().split('T')[0];
+                    filteredTx = filteredTx.filter(t => t.date === yStr);
+                } else if (filter === '7days') {
+                    const limit = new Date(now);
+                    limit.setDate(limit.getDate() - 7);
+                    filteredTx = filteredTx.filter(t => new Date(t.date) >= limit);
+                } else if (filter === 'month') {
+                    const currentMonth = now.toISOString().substring(0, 7);
+                    filteredTx = filteredTx.filter(t => t.date.startsWith(currentMonth));
+                }
+
+                if (filteredTx.length === 0) {
+                    container.innerHTML = `<p class="text-center text-xs text-gray-400 py-6">Nenhum lançamento encontrado para este período.</p>`;
+                    return;
+                }
+
+                // Agrupar por data
+                const grouped = {};
+                filteredTx.sort((a,b) => b.id - a.id).forEach(t => {
+                    if (!grouped[t.date]) grouped[t.date] = [];
+                    grouped[t.date].push(t);
+                });
+
+                Object.keys(grouped).forEach(dateStr => {
+                    const items = grouped[dateStr];
+                    const dayGains = items.filter(t => t.category === 'gain').reduce((acc, t) => acc + t.amount, 0);
+                    const dayExpenses = items.filter(t => t.category === 'expense').reduce((acc, t) => acc + t.amount, 0);
+                    const dayNet = dayGains - dayExpenses;
+
+                    const formattedDate = new Date(dateStr + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+
+                    const card = document.createElement('div');
+                    card.className = 'bg-white dark:bg-slate-800 rounded-2xl p-4 border border-gray-100 dark:border-slate-700/60 shadow-sm space-y-3';
+                    
+                    let itemsHtml = items.map(t => {
+                        const isGain = t.category === 'gain';
+                        return `
+                            <div class="flex justify-between items-center py-2 border-b border-gray-50 dark:border-slate-700/40 last:border-0 text-xs">
+                                <div class="flex items-center gap-2">
+                                    <div class="p-1.5 rounded-lg ${isGain ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400'}">
+                                        <i data-lucide="${isGain ? 'arrow-up-right' : 'arrow-down-left'}" class="w-3.5 h-3.5"></i>
+                                    </div>
+                                    <div>
+                                        <span class="font-bold block">${isGain ? t.app : t.expenseCategory}</span>
+                                        <span class="text-[10px] text-gray-400">${t.time} ${t.note ? '• ' + t.note : ''}</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="font-extrabold ${isGain ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
+                                        ${isGain ? '+' : '-'} ${this.formatCurrency(t.amount)}
+                                    </span>
+                                    <button onclick="app.deleteTransaction(${t.id})" class="text-gray-300 hover:text-rose-500"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    card.innerHTML = `
+                        <div class="flex justify-between items-center pb-2 border-b border-gray-100 dark:border-slate-700">
+                            <span class="text-xs font-bold capitalize text-gray-500 dark:text-gray-400">${formattedDate}</span>
+                            <span class="text-xs font-extrabold ${dayNet >= 0 ? 'text-emerald-500' : 'text-rose-500'}">Líquido: ${this.formatCurrency(dayNet)}</span>
+                        </div>
+                        <div>${itemsHtml}</div>
+                    `;
+                    container.appendChild(card);
+                });
+
+                lucide.createIcons();
+            }
+
+            // --- RELATÓRIOS (GRÁFICOS) ---
+            renderReports() {
+                setTimeout(() => this.renderCharts(), 100);
+            }
+
+            renderCharts() {
+                const isDark = document.documentElement.classList.contains('dark');
+                const textColor = isDark ? '#94a3b8' : '#64748b';
+
+                // Chart 1: Ganhos vs Gastos Últimos 7 dias
+                const ctxWeekly = document.getElementById('chart-weekly').getContext('2d');
+                if (this.charts.weekly) this.charts.weekly.destroy();
+
+                const last7Days = Array.from({length: 7}, (_, i) => {
+                    const d = new Date();
+                    d.setDate(d.getDate() - (6 - i));
+                    return d.toISOString().split('T')[0];
+                });
+
+                const gainsData = last7Days.map(date => {
+                    return this.state.transactions
+                        .filter(t => t.date === date && t.category === 'gain')
+                        .reduce((a, b) => a + b.amount, 0);
+                });
+
+                const expensesData = last7Days.map(date => {
+                    return this.state.transactions
+                        .filter(t => t.date === date && t.category === 'expense')
+                        .reduce((a, b) => a + b.amount, 0);
+                });
+
+                const labels = last7Days.map(d => new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short' }));
+
+                this.charts.weekly = new Chart(ctxWeekly, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            { label: 'Ganhos', data: gainsData, backgroundColor: '#22c55e', borderRadius: 6 },
+                            { label: 'Gastos', data: expensesData, backgroundColor: '#f43f5e', borderRadius: 6 }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: textColor } } },
+                        scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } }
+                    }
+                });
+
+                // Chart 2: Ganhos por App
+                const ctxApps = document.getElementById('chart-apps').getContext('2d');
+                if (this.charts.apps) this.charts.apps.destroy();
+
+                const appTotals = this.state.apps.map(app => {
+                    return this.state.transactions
+                        .filter(t => t.category === 'gain' && t.app === app)
+                        .reduce((a, b) => a + b.amount, 0);
+                });
+
+                this.charts.apps = new Chart(ctxApps, {
+                    type: 'doughnut',
+                    data: {
+                        labels: this.state.apps,
+                        datasets: [{
+                            data: appTotals,
+                            backgroundColor: ['#000000', '#ff0000', '#22c55e', '#3b82f6', '#a855f7']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { color: textColor } } }
+                    }
+                });
+
+                // Chart 3: Gastos por Categoria
+                const ctxExpenses = document.getElementById('chart-expenses').getContext('2d');
+                if (this.charts.expenses) this.charts.expenses.destroy();
+
+                const expCategories = ['Combustível', 'Alimentação', 'Pedágio', 'Estacionamento', 'Lavagem', 'Manutenção', 'Outros'];
+                const expTotals = expCategories.map(cat => {
+                    return this.state.transactions
+                        .filter(t => t.category === 'expense' && t.expenseCategory === cat)
+                        .reduce((a, b) => a + b.amount, 0);
+                });
+
+                this.charts.expenses = new Chart(ctxExpenses, {
+                    type: 'pie',
+                    data: {
+                        labels: expCategories,
+                        datasets: [{
+                            data: expTotals,
+                            backgroundColor: ['#ef4444', '#f97316', '#eab308', '#8b5cf6', '#06b6d4', '#ec4899', '#64748b']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { color: textColor } } }
+                    }
+                });
+            }
+
+            // --- METAS E APPS ---
+            renderGoalsPage() {
+                const today = this.getTodayDateStr();
+                const todayTx = this.state.transactions.filter(t => t.date === today);
+                const gross = todayTx.filter(t => t.category === 'gain').reduce((acc, t) => acc + t.amount, 0);
+                const expenses = todayTx.filter(t => t.category === 'expense').reduce((acc, t) => acc + t.amount, 0);
+                const net = gross - expenses;
+
+                const goal = this.state.dailyGoal;
+                const percent = Math.min(100, Math.max(0, Math.round((net / goal) * 100)));
+
+                document.getElementById('goal-progress-text').innerText = `${this.formatCurrency(net)} / ${this.formatCurrency(goal)}`;
+                document.getElementById('goal-percent-text').innerText = `${percent}%`;
+                document.getElementById('goal-bar').style.width = `${percent}%`;
+
+                // Render Lista de Apps
+                this.renderAppsList();
+
+                // Custo Veículo
+                const financing = this.state.vehicleCosts.financing || 0;
+                const insurance = this.state.vehicleCosts.insurance || 0;
+                const dailyFixed = (financing + insurance) / 30;
+                document.getElementById('vehicle-fixed-daily').innerText = `${this.formatCurrency(dailyFixed)} / dia`;
+            }
+
+            editGoal() {
+                const newGoal = prompt("Digite sua nova meta diária de lucro líquido (R$):", this.state.dailyGoal);
+                if (newGoal && !isNaN(parseFloat(newGoal))) {
+                    this.state.dailyGoal = parseFloat(newGoal);
+                    this.saveLocalStorage();
+                    this.renderGoalsPage();
+                }
+            }
+
+            renderAppsOptions() {
+                const select = document.getElementById('gain-app');
+                select.innerHTML = this.state.apps.map(a => `<option value="${a}">${a}</option>`).join('');
+            }
+
+            renderAppsList() {
+                const container = document.getElementById('apps-list');
+                container.innerHTML = this.state.apps.map((app, idx) => `
+                    <div class="flex justify-between items-center bg-gray-50 dark:bg-slate-700/50 p-2.5 rounded-xl text-xs">
+                        <span class="font-bold">${app}</span>
+                        ${idx > 3 ? `<button onclick="app.removeApp(${idx})" class="text-rose-500 font-bold">Remover</button>` : '<span class="text-[10px] text-gray-400">Padrão</span>'}
+                    </div>
+                `).join('');
+            }
+
+            addAppPrompt() {
+                const name = prompt("Digite o nome do novo aplicativo:");
+                if (name && !this.state.apps.includes(name)) {
+                    this.state.apps.push(name);
+                    this.saveLocalStorage();
+                    this.renderAppsOptions();
+                    this.renderAppsList();
+                }
+            }
+
+            removeApp(idx) {
+                this.state.apps.splice(idx, 1);
+                this.saveLocalStorage();
+                this.renderAppsOptions();
+                this.renderAppsList();
+            }
+
+            saveCosts() {
+                this.state.vehicleCosts.financing = parseFloat(document.getElementById('cfg-cost-financing').value) || 0;
+                this.state.vehicleCosts.insurance = parseFloat(document.getElementById('cfg-cost-insurance').value) || 0;
+                this.saveLocalStorage();
+                this.renderGoalsPage();
+            }
+        }
+
+        // Inicializa o App
+        const app = new DriveFlowApp();
+    </script>
+</body>
+</html>
